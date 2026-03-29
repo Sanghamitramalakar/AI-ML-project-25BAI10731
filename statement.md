@@ -183,7 +183,3 @@ By making budgeting easy to understand and visually engaging Spendwise encourage
 Spendwise is a tool for anyone who wants to manage their money better.
 
 
-
-* Convert this into a college submission format with headings, like Aim, Objective, etc.
-
-*. Shorten it into a 1-page PDF/report version
