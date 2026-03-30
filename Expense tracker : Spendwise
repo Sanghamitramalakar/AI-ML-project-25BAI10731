@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spendwise — Smart Budget Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<!-- ░░░ FIREBASE — replace the config below with your own from console.firebase.google.com ░░░ -->
+<script type="module">
+  import { initializeApp }                          from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword,
+           signInWithEmailAndPassword, signOut,
+           onAuthStateChanged, updateProfile }      from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  // ┌─────────────────────────────────────────────────────────────┐
+  // │  PASTE YOUR FIREBASE CONFIG HERE                            │
+  // │  Get it from: Firebase Console → Project Settings → Apps   │
+  // └─────────────────────────────────────────────────────────────┘
+  const firebaseConfig = {
+    apiKey:            "YOUR_API_KEY",
+    authDomain:        "YOUR_PROJECT.firebaseapp.com",
+    projectId:         "YOUR_PROJECT_ID",
+    storageBucket:     "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId:             "YOUR_APP_ID"
+  };
+
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  // Expose to global scope for the rest of the page
+  window._fbAuth    = auth;
+  window._fbCreate  = createUserWithEmailAndPassword;
+  window._fbSignIn  = signInWithEmailAndPassword;
+  window._fbSignOut = signOut;
+  window._fbOnAuth  = onAuthStateChanged;
+  window._fbUpdate  = updateProfile;
+  window._firebaseReady = true;
+
+  // Notify page that Firebase is ready
+  document.dispatchEvent(new Event('firebase-ready'));
+</script>
+
+<style>
+/* ═══════════════════════════════════════════
+   DEEP NAVY × GOLD PREMIUM THEME
+═══════════════════════════════════════════ */
+:root {
+  --bg:       #070c18;
+  --navy1:    #0c1428;
+  --navy2:    #111d36;
+  --navy3:    #182545;
+  --border:   #1e2f52;
+  --border2:  #243660;
+  --gold:     #c9a84c;
+  --gold2:    #e8c96a;
+  --gold3:    #f5dfa0;
+  --goldglow: rgba(201,168,76,0.18);
+  --text:     #dde4f0;
+  --text2:    #8fa0c0;
+  --muted:    #4a5a7a;
+  --success:  #3ecfaa;
+  --danger:   #d95f5f;
+  --warning:  #d4a847;
+  --purple:   #8b72d4;
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-mono:    'DM Mono', monospace;
+}
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(201,168,76,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 30% at 90% 10%,  rgba(201,168,76,0.04) 0%, transparent 50%);
+  color: var(--text);
+  font-family: var(--font-mono);
+  min-height: 100vh;
+  padding-bottom: 70px;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp   { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
+@keyframes shimmer  { 0%,100% { opacity:.5; } 50% { opacity:1; } }
+@keyframes goldPulse{ 0%,100% { box-shadow: 0 0 0 0 rgba(201,168,76,0); } 50% { box-shadow: 0 0 18px 2px rgba(201,168,76,0.2); } }
+
+/* ══════════════════════════════════
+   AUTH SCREEN
+══════════════════════════════════ */
+#authScreen {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.5s ease;
+}
+.auth-card {
+  background: var(--navy1);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  padding: 44px 40px;
+  width: min(440px, 100%);
+  position: relative;
+  overflow: hidden;
+  animation: fadeUp 0.5s ease;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,76,0.08);
+}
+.auth-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(201,168,76,0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+.auth-logo {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--gold2);
+  text-align: center;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.auth-logo span { color: var(--text); font-weight: 400; }
+.auth-tagline { text-align: center; font-size: 0.72rem; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 36px; }
+.auth-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; }
+.auth-divider hr { flex:1; border: none; border-top: 1px solid var(--border); }
+.auth-divider span { font-size: 0.68rem; color: var(--muted); }
+
+.auth-tabs { display: flex; background: var(--navy2); border-radius: 10px; padding: 3px; margin-bottom: 26px; }
+.auth-tab { flex:1; padding: 8px; border: none; background: transparent; color: var(--muted); font-family: var(--font-mono); font-size: 0.76rem; border-radius: 8px; cursor: pointer; transition: all 0.2s; letter-spacing: 0.3px; }
+.auth-tab.active { background: var(--navy3); color: var(--gold2); border: 1px solid var(--border2); }
+
+.auth-form { display: flex; flex-direction: column; gap: 14px; }
+.auth-field { display: flex; flex-direction: column; gap: 5px; }
+.auth-field label { font-size: 0.67rem; color: var(--text2); letter-spacing: 1px; text-transform: uppercase; }
+.auth-field input {
+  background: var(--navy2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 11px 14px;
+  border-radius: 9px;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.auth-field input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,168,76,0.1); }
+.auth-field input::placeholder { color: var(--muted); }
+
+.auth-btn {
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold2) 100%);
+  color: #070c18;
+  border: none;
+  padding: 13px;
+  border-radius: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: all 0.2s;
+  margin-top: 4px;
+  animation: goldPulse 3s ease-in-out infinite;
+}
+.auth-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(201,168,76,0.3); }
+.auth-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.auth-error { background: rgba(217,95,95,0.12); border: 1px solid rgba(217,95,95,0.3); border-radius: 8px; padding: 10px 14px; font-size: 0.75rem; color: var(--danger); display: none; }
+.auth-error.show { display: block; }
+.auth-success { background: rgba(62,207,170,0.12); border: 1px solid rgba(62,207,170,0.3); border-radius: 8px; padding: 10px 14px; font-size: 0.75rem; color: var(--success); display: none; }
+.auth-success.show { display: block; }
+
+.auth-footer { text-align: center; font-size: 0.68rem; color: var(--muted); margin-top: 22px; line-height: 1.6; }
+
+/* ══════════════════════════════════
+   APP (main layout)
+══════════════════════════════════ */
+#appScreen { display: none; }
+#appScreen.visible { display: block; animation: fadeIn 0.4s ease; }
+
+/* ── HEADER ── */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(12,20,40,0.95);
+  backdrop-filter: blur(12px);
+  position: sticky; top: 0; z-index: 100;
+  gap: 12px; flex-wrap: wrap;
+}
+.logo {
+  font-family: var(--font-display);
+  font-weight: 700; font-size: 1.55rem; letter-spacing: 0.5px;
+  color: var(--gold2);
+}
+.logo span { color: var(--text); font-weight: 400; }
+
+.tab-bar { display: flex; gap: 2px; background: var(--navy2); padding: 3px; border-radius: 10px; flex-wrap: wrap; }
+.tab {
+  padding: 6px 13px; border: none; background: transparent;
+  color: var(--muted); font-family: var(--font-mono); font-size: 0.72rem;
+  border-radius: 8px; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.tab.active { background: linear-gradient(135deg, var(--gold) 0%, var(--gold2) 100%); color: #070c18; font-weight: 500; }
+.tab:hover:not(.active) { color: var(--text); background: var(--navy3); }
+
+.header-right { display: flex; align-items: center; gap: 12px; }
+.user-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--navy2); border: 1px solid var(--border);
+  border-radius: 99px; padding: 5px 12px 5px 5px;
+  font-size: 0.7rem; color: var(--text2);
+}
+.user-avatar {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold), var(--gold2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 700; color: #070c18;
+  flex-shrink: 0;
+}
+.period-badge { background: var(--navy2); border: 1px solid var(--border); border-radius: 99px; padding: 4px 11px; font-size: 0.68rem; color: var(--muted); white-space: nowrap; }
+.period-badge span { color: var(--gold2); font-weight: 500; }
+.logout-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 5px 11px; border-radius: 8px; font-family: var(--font-mono); font-size: 0.7rem; cursor: pointer; transition: all 0.2s; }
+.logout-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+/* ── MAIN ── */
+main { max-width: 1100px; margin: 0 auto; padding: 28px 18px; }
+.page { display: none; }
+.page.active { display: block; animation: fadeUp 0.28s ease; }
+
+/* ── GOLD DIVIDER ── */
+.gold-line { height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); margin: 20px 0; opacity: 0.3; }
+
+/* ── GOAL BANNER ── */
+.goal-banner {
+  background: linear-gradient(135deg, var(--navy1) 0%, var(--navy2) 100%);
+  border: 1px solid var(--border2);
+  border-left: 3px solid var(--gold);
+  border-radius: 14px; padding: 18px 22px; margin-bottom: 22px;
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  box-shadow: inset 0 0 40px rgba(201,168,76,0.03);
+}
+.goal-banner h2 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; color: var(--gold2); margin-bottom: 2px; }
+.goal-banner p { font-size: 0.7rem; color: var(--muted); }
+.goal-inputs { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+.goal-inputs select, .goal-inputs input {
+  background: var(--navy3); border: 1px solid var(--border2);
+  color: var(--text); padding: 7px 12px; border-radius: 8px;
+  font-family: var(--font-mono); font-size: 0.78rem; outline: none; transition: border-color 0.2s;
+}
+.goal-inputs select:focus, .goal-inputs input:focus { border-color: var(--gold); }
+.goal-inputs input { width: 130px; }
+.goal-inputs input::placeholder { color: var(--muted); }
+
+/* ── STAT CARDS ── */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 13px; margin-bottom: 22px; }
+.stat-card {
+  background: var(--navy1); border: 1px solid var(--border);
+  border-radius: 16px; padding: 20px 20px 16px;
+  position: relative; overflow: hidden; transition: transform 0.2s, box-shadow 0.2s;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,0.3); }
+.stat-card::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px; border-radius: 16px 16px 0 0;
+}
+.stat-card.budget::after  { background: linear-gradient(90deg, var(--gold), var(--gold2)); }
+.stat-card.spent::after   { background: linear-gradient(90deg, var(--danger), #ff8080); }
+.stat-card.remaining::after { background: linear-gradient(90deg, var(--success), #38d9a9); }
+.stat-card.saved::after   { background: linear-gradient(90deg, var(--purple), #b09af0); }
+.stat-card-glow { position: absolute; top: -20px; right: -20px; width: 80px; height: 80px; border-radius: 50%; opacity: 0.06; }
+.stat-card.budget  .stat-card-glow { background: var(--gold2); }
+.stat-card.spent   .stat-card-glow { background: var(--danger); }
+.stat-card.remaining .stat-card-glow { background: var(--success); }
+.stat-card.saved   .stat-card-glow { background: var(--purple); }
+.stat-label { font-size: 0.64rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 9px; }
+.stat-value { font-family: var(--font-display); font-size: 2rem; font-weight: 700; letter-spacing: -0.5px; line-height: 1; }
+.stat-card.budget   .stat-value { color: var(--gold2); }
+.stat-card.spent    .stat-value { color: var(--danger); }
+.stat-card.remaining .stat-value { color: var(--success); }
+.stat-card.saved    .stat-value { color: var(--purple); }
+.stat-sub { font-size: 0.66rem; color: var(--muted); margin-top: 6px; }
+
+/* ── PROGRESS ── */
+.progress-section { background: var(--navy1); border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px; margin-bottom: 22px; }
+.progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.progress-title { font-family: var(--font-display); font-weight: 600; font-size: 1rem; color: var(--text); }
+.progress-track { background: var(--navy3); height: 8px; border-radius: 99px; overflow: hidden; margin-bottom: 6px; }
+.progress-fill { height: 100%; border-radius: 99px; transition: width 0.7s cubic-bezier(.22,1,.36,1); }
+.progress-fill.safe   { background: linear-gradient(90deg, #2aaa8a, var(--success)); }
+.progress-fill.warn   { background: linear-gradient(90deg, var(--warning), #f5d060); }
+.progress-fill.danger { background: linear-gradient(90deg, var(--danger), #e88080); }
+
+/* ── PANEL ── */
+.panel { background: var(--navy1); border: 1px solid var(--border); border-radius: 16px; padding: 22px; }
+.panel-title { font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; color: var(--text); }
+.gold-dot { width: 7px; height: 7px; border-radius: 50%; background: linear-gradient(135deg, var(--gold), var(--gold2)); display: inline-block; flex-shrink: 0; box-shadow: 0 0 6px rgba(201,168,76,0.4); }
+
+/* ── CAT ROWS ── */
+.cat-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.cat-row:last-child { border-bottom: none; }
+.cat-icon { font-size: 1.05rem; width: 26px; text-align: center; flex-shrink: 0; }
+.cat-name { font-size: 0.74rem; width: 88px; flex-shrink: 0; color: var(--text2); }
+.cat-bar-wrap { flex: 1; background: var(--navy3); height: 6px; border-radius: 99px; overflow: visible; position: relative; }
+.cat-bar-bg { height: 6px; border-radius: 99px; overflow: hidden; }
+.cat-bar-fill { height: 100%; border-radius: 99px; transition: width 0.5s ease; }
+.cat-bar-limit { position: absolute; top: -3px; bottom: -3px; width: 2px; background: rgba(201,168,76,0.85); border-radius: 1px; }
+.cat-amount { font-size: 0.72rem; width: 60px; text-align: right; flex-shrink: 0; color: var(--text2); }
+.cat-limit-label { font-size: 0.61rem; color: var(--muted); width: 56px; text-align: right; flex-shrink: 0; }
+.over { color: var(--danger) !important; }
+
+/* ── TWO COL ── */
+.two-col { display: grid; grid-template-columns: 1fr 1.2fr; gap: 16px; margin-bottom: 16px; }
+@media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ── FORMS ── */
+.form-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+.form-row label { font-size: 0.65rem; color: var(--text2); letter-spacing: 1px; text-transform: uppercase; }
+.form-row input, .form-row select {
+  background: var(--navy2); border: 1px solid var(--border);
+  color: var(--text); padding: 9px 12px; border-radius: 9px;
+  font-family: var(--font-mono); font-size: 0.78rem; outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s; width: 100%;
+}
+.form-row input:focus, .form-row select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,168,76,0.08); }
+.form-row input::placeholder { color: var(--muted); }
+
+.btn { padding: 9px 18px; border-radius: 9px; border: none; cursor: pointer; font-family: var(--font-mono); font-size: 0.78rem; font-weight: 500; transition: all 0.2s; }
+.btn-primary { background: linear-gradient(135deg, var(--gold) 0%, var(--gold2) 100%); color: #070c18; width: 100%; margin-top: 4px; }
+.btn-primary:hover { box-shadow: 0 4px 16px rgba(201,168,76,0.35); transform: translateY(-1px); }
+.btn-danger { background: rgba(217,95,95,0.18); color: var(--danger); border: 1px solid rgba(217,95,95,0.3); padding: 4px 9px; font-size: 0.68rem; }
+.btn-danger:hover { background: rgba(217,95,95,0.3); }
+.btn-add { background: rgba(139,114,212,0.15); color: var(--purple); border: 1px solid rgba(139,114,212,0.3); padding: 6px 12px; font-size: 0.72rem; }
+.btn-add:hover { background: rgba(139,114,212,0.25); }
+.btn-ghost { background: var(--navy2); color: var(--muted); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); }
+
+/* ── TX LIST ── */
+.tx-list { display: flex; flex-direction: column; gap: 7px; max-height: 390px; overflow-y: auto; }
+.tx-item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--navy2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 11px 13px; transition: border-color 0.2s;
+}
+.tx-item:hover { border-color: var(--border2); }
+.tx-emoji { font-size: 1.1rem; width: 28px; text-align: center; }
+.tx-info { flex: 1; }
+.tx-name { font-size: 0.79rem; font-weight: 500; color: var(--text); }
+.tx-meta { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+.tx-amount { font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--danger); }
+
+.empty-state { text-align: center; padding: 36px 16px; color: var(--muted); font-size: 0.75rem; }
+.empty-state .es-icon { font-size: 2rem; margin-bottom: 8px; opacity: 0.6; }
+
+/* ── BUDGET PLANNER ── */
+.planner-intro {
+  background: linear-gradient(135deg, var(--navy1) 0%, var(--navy2) 100%);
+  border: 1px solid var(--border2); border-left: 3px solid var(--purple);
+  border-radius: 14px; padding: 16px 20px; margin-bottom: 22px;
+}
+.planner-intro h2 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; color: var(--purple); margin-bottom: 4px; }
+.planner-intro p { font-size: 0.7rem; color: var(--muted); line-height: 1.6; }
+.planner-section-label {
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px;
+  color: var(--muted); margin: 22px 0 12px;
+  display: flex; align-items: center; gap: 10px;
+}
+.planner-section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.planner-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(265px, 1fr)); gap: 13px; }
+.planner-card {
+  background: var(--navy1); border: 1px solid var(--border);
+  border-radius: 13px; padding: 16px 18px; transition: border-color 0.2s;
+}
+.planner-card.has-limit { border-left: 3px solid var(--gold); }
+.planner-card.over-limit { border-left: 3px solid var(--danger) !important; }
+.planner-card.has-save  { border-left: 3px solid var(--purple); }
+.pc-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.pc-emoji { font-size: 1.35rem; }
+.pc-name { font-family: var(--font-display); font-size: 0.92rem; font-weight: 600; color: var(--text); }
+.pc-badge { font-size: 0.58rem; padding: 2px 7px; border-radius: 99px; margin-left: auto; flex-shrink: 0; letter-spacing: 0.5px; text-transform: uppercase; }
+.pc-badge.spend { background: rgba(201,168,76,0.12); color: var(--gold2); border: 1px solid rgba(201,168,76,0.2); }
+.pc-badge.save  { background: rgba(139,114,212,0.12); color: var(--purple); border: 1px solid rgba(139,114,212,0.2); }
+.pc-input-row { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+.pc-input-row label { font-size: 0.64rem; color: var(--muted); width: 78px; flex-shrink: 0; letter-spacing: 0.5px; }
+.pc-input-row input {
+  background: var(--navy2); border: 1px solid var(--border);
+  color: var(--text); padding: 6px 10px; border-radius: 7px;
+  font-family: var(--font-mono); font-size: 0.76rem; outline: none; flex: 1;
+  transition: border-color 0.2s;
+}
+.pc-input-row input:focus { border-color: var(--gold); }
+.pc-progress { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.pc-progress-bar { background: var(--navy3); height: 5px; border-radius: 99px; overflow: hidden; margin-bottom: 5px; }
+.pc-progress-fill { height: 100%; border-radius: 99px; transition: width 0.5s ease; }
+.pc-progress-label { font-size: 0.62rem; color: var(--muted); }
+
+/* ── SAVINGS ── */
+.savings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: 14px; margin-bottom: 22px; }
+.savings-goal-card {
+  background: var(--navy1); border: 1px solid var(--border);
+  border-radius: 15px; padding: 20px; transition: transform 0.2s, box-shadow 0.2s;
+  position: relative; overflow: hidden;
+}
+.savings-goal-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--purple), #b09af0);
+}
+.savings-goal-card:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,0.3); }
+.sg-name { font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; margin-bottom: 2px; color: var(--text); }
+.sg-target { font-size: 0.68rem; color: var(--muted); margin-bottom: 12px; }
+.sg-saved { font-family: var(--font-display); font-size: 1.45rem; font-weight: 700; color: var(--purple); }
+
+/* ── BADGES ── */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 0.6rem; font-weight: 500; letter-spacing: 0.5px; }
+.badge-safe   { background: rgba(62,207,170,0.12); color: var(--success); border: 1px solid rgba(62,207,170,0.2); }
+.badge-warn   { background: rgba(212,168,71,0.12); color: var(--warning); border: 1px solid rgba(212,168,71,0.2); }
+.badge-danger { background: rgba(217,95,95,0.12);  color: var(--danger);  border: 1px solid rgba(217,95,95,0.2); }
+
+/* ── TIPS ── */
+.tip-card {
+  background: var(--navy1); border: 1px solid var(--border);
+  border-left: 3px solid var(--gold); border-radius: 12px;
+  padding: 15px 18px; margin-bottom: 10px;
+  transition: border-color 0.2s;
+}
+.tip-card:hover { border-color: var(--border2); }
+.tip-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 1.8px; color: var(--gold); margin-bottom: 5px; }
+.tip-text { font-size: 0.76rem; color: var(--text2); line-height: 1.65; }
+
+/* ── MODAL ── */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--navy1); border: 1px solid var(--border2);
+  border-radius: 18px; padding: 28px;
+  width: min(390px, 93vw);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  animation: fadeUp 0.25s ease;
+}
+.modal h3 { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; margin-bottom: 18px; color: var(--gold2); }
+.modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+.btn-cancel { background: var(--navy2); color: var(--muted); flex: 1; border: 1px solid var(--border); }
+.btn-cancel:hover { color: var(--text); }
+.btn-save { background: linear-gradient(135deg, var(--purple), #b09af0); color: white; flex: 1; border: none; }
+.btn-save:hover { box-shadow: 0 4px 16px rgba(139,114,212,0.35); }
+
+/* ── SECTION HEADER ── */
+.section-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 20px; }
+.section-title { font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; color: var(--text); }
+.section-sub { font-size: 0.69rem; color: var(--muted); margin-top: 3px; }
+
+/* ── FIREBASE NOTICE ── */
+/* ── GUEST ── */
+.guest-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0 16px; }
+.guest-divider hr { flex:1; border:none; border-top:1px solid var(--border); }
+.guest-divider span { font-size: 0.66rem; color: var(--muted); letter-spacing: 0.5px; white-space: nowrap; }
+.guest-btn {
+  width: 100%; padding: 11px; border-radius: 10px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text2); font-family: var(--font-mono); font-size: 0.8rem;
+  cursor: pointer; transition: all 0.2s; letter-spacing: 0.3px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.guest-btn:hover { background: var(--navy3); border-color: var(--gold); color: var(--gold2); }
+
+.guest-banner {
+  background: rgba(201,168,76,0.06); border: 1px solid rgba(201,168,76,0.18);
+  border-radius: 10px; padding: 10px 16px;
+  font-size: 0.71rem; color: var(--gold3);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 20px; flex-wrap: wrap;
+}
+.guest-banner span { display: flex; align-items: center; gap: 6px; }
+.guest-create-btn {
+  background: linear-gradient(135deg, var(--gold), var(--gold2));
+  color: #070c18; border: none; padding: 5px 12px; border-radius: 7px;
+  font-family: var(--font-mono); font-size: 0.7rem; font-weight: 500;
+  cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.guest-create-btn:hover { box-shadow: 0 3px 10px rgba(201,168,76,0.35); }
+
+.firebase-notice {
+  background: rgba(201,168,76,0.07); border: 1px solid rgba(201,168,76,0.2);
+  border-radius: 10px; padding: 14px 18px; font-size: 0.72rem;
+  color: var(--gold3); line-height: 1.7; margin-top: 16px;
+}
+.firebase-notice strong { color: var(--gold2); }
+.firebase-notice code { background: rgba(201,168,76,0.1); padding: 1px 5px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.7rem; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     AUTH SCREEN
+══════════════════════════════════════ -->
+<div id="authScreen">
+  <div class="auth-card">
+    <div class="auth-logo">Spend<span>wise</span></div>
+    <div class="auth-tagline">Your personal wealth compass</div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabSignIn" onclick="switchAuthTab('signin')">Sign In</button>
+      <button class="auth-tab"        id="tabSignUp" onclick="switchAuthTab('signup')">Create Account</button>
+    </div>
+
+    <!-- SIGN IN -->
+    <div id="formSignIn">
+      <div class="auth-form">
+        <div class="auth-field"><label>Email Address</label><input type="email" id="siEmail" placeholder="you@example.com" /></div>
+        <div class="auth-field"><label>Password</label><input type="password" id="siPassword" placeholder="••••••••" /></div>
+        <div class="auth-error" id="siError"></div>
+        <button class="auth-btn" id="siBtn" onclick="doSignIn()">Sign In →</button>
+      </div>
+    </div>
+
+    <!-- SIGN UP -->
+    <div id="formSignUp" style="display:none">
+      <div class="auth-form">
+        <div class="auth-field"><label>Full Name</label><input type="text" id="suName" placeholder="Your name" /></div>
+        <div class="auth-field"><label>Email Address</label><input type="email" id="suEmail" placeholder="you@example.com" /></div>
+        <div class="auth-field"><label>Password</label><input type="password" id="suPassword" placeholder="Min 6 characters" /></div>
+        <div class="auth-field"><label>Confirm Password</label><input type="password" id="suConfirm" placeholder="Repeat password" /></div>
+        <div class="auth-error"   id="suError"></div>
+        <div class="auth-success" id="suSuccess"></div>
+        <button class="auth-btn" id="suBtn" onclick="doSignUp()">Create Account →</button>
+      </div>
+    </div>
+
+    <div class="guest-divider"><hr><span>or skip for now</span><hr></div>
+    <button class="guest-btn" onclick="continueAsGuest()">
+      <span>👤</span> Continue as Guest
+    </button>
+
+    <div class="firebase-notice">
+      <strong>⚡ Connect Firebase to enable real auth.</strong><br>
+      1. Go to <code>console.firebase.google.com</code> → create a project<br>
+      2. Enable <strong>Email/Password</strong> in Authentication → Sign-in method<br>
+      3. Copy your config from Project Settings → Apps → Web<br>
+      4. Paste it into the <code>firebaseConfig</code> object at the top of this file
+    </div>
+
+    <div class="auth-footer">By signing in you agree to manage your finances responsibly 💛</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     APP SCREEN
+══════════════════════════════════════ -->
+<div id="appScreen">
+  <header>
+    <div class="logo">Spend<span>wise</span></div>
+    <div class="tab-bar">
+      <button class="tab active"  onclick="showPage('dashboard',this)">Dashboard</button>
+      <button class="tab"         onclick="showPage('planner',this)">Budget Planner</button>
+      <button class="tab"         onclick="showPage('expenses',this)">Expenses</button>
+      <button class="tab"         onclick="showPage('savings',this)">Savings</button>
+      <button class="tab"         onclick="showPage('tips',this)">Tips</button>
+    </div>
+    <div class="header-right">
+      <div class="period-badge">Period: <span id="periodLabel">Monthly</span></div>
+      <div class="user-chip">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <span id="userEmailDisplay">—</span>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">Sign Out</button>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- GUEST BANNER (shown only in guest mode) -->
+    <div class="guest-banner" id="guestBanner" style="display:none">
+      <span>👤 You're browsing as a <strong>Guest</strong> — your data is saved locally on this device only.</span>
+      <button class="guest-create-btn" onclick="doLogout()">Create a Free Account →</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="goal-banner">
+        <div><h2>Overall Budget Goal</h2><p>Set your total spending limit for this period</p></div>
+        <div class="goal-inputs">
+          <select id="periodSelect" onchange="updatePeriod()">
+            <option value="monthly">Monthly</option>
+            <option value="weekly">Weekly</option>
+          </select>
+          <input type="number" id="budgetInput" placeholder="e.g. 20000" oninput="updateBudget()" />
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card budget"><div class="stat-card-glow"></div><div class="stat-label">Budget Set</div><div class="stat-value" id="statBudget">₹0</div><div class="stat-sub" id="statPeriodSub">No goal set yet</div></div>
+        <div class="stat-card spent"><div class="stat-card-glow"></div><div class="stat-label">Total Spent</div><div class="stat-value" id="statSpent">₹0</div><div class="stat-sub" id="statTxCount">0 transactions</div></div>
+        <div class="stat-card remaining"><div class="stat-card-glow"></div><div class="stat-label">Remaining</div><div class="stat-value" id="statRemaining">₹0</div><div class="stat-sub" id="statStatus">—</div></div>
+        <div class="stat-card saved"><div class="stat-card-glow"></div><div class="stat-label">Total Saved</div><div class="stat-value" id="statSaved">₹0</div><div class="stat-sub">across all savings goals</div></div>
+      </div>
+      <div class="progress-section">
+        <div class="progress-header">
+          <div class="progress-title">Budget Utilisation &nbsp;<span id="progressBadge" class="badge badge-safe">On Track</span></div>
+          <div style="font-size:0.76rem;color:var(--muted)" id="progressPct">0%</div>
+        </div>
+        <div class="progress-track"><div class="progress-fill safe" id="progressFill" style="width:0%"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:0.64rem;color:var(--muted);margin-top:5px"><span>₹0</span><span id="progressMax">₹0 limit</span></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title"><span class="gold-dot"></span>Spending vs Category Limits</div>
+        <div id="catBreakdown"><div class="empty-state"><div class="es-icon">📊</div>Add expenses to see breakdown</div></div>
+      </div>
+    </div>
+
+    <!-- BUDGET PLANNER -->
+    <div class="page" id="page-planner">
+      <div class="planner-intro">
+        <h2>✦ Budget Planner</h2>
+        <p>Set a spend limit per expense category and a savings target per savings category. Progress updates live as you log transactions.</p>
+      </div>
+      <div class="planner-section-label">Spending Categories — limit per period</div>
+      <div class="planner-grid" id="plannerSpendGrid"></div>
+      <div class="planner-section-label">Savings Categories — target per period</div>
+      <div class="planner-grid" id="plannerSaveGrid"></div>
+    </div>
+
+    <!-- EXPENSES -->
+    <div class="page" id="page-expenses">
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-title"><span class="gold-dot"></span>Add Expense</div>
+          <div class="form-row"><label>Description</label><input type="text" id="expName" placeholder="e.g. Dinner, Rent, Netflix…" /></div>
+          <div class="form-row"><label>Amount (₹)</label><input type="number" id="expAmount" placeholder="0.00" /></div>
+          <div class="form-row"><label>Category</label><select id="expCategory"></select></div>
+          <div class="form-row"><label>Date</label><input type="date" id="expDate" /></div>
+          <button class="btn btn-primary" onclick="addExpense()">+ Log Expense</button>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><span class="gold-dot" style="background:var(--danger)"></span>Recent Transactions</div>
+          <div class="tx-list" id="txList"><div class="empty-state"><div class="es-icon">💸</div>No expenses yet</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SAVINGS -->
+    <div class="page" id="page-savings">
+      <div class="section-header">
+        <div><div class="section-title">Savings Goals</div><div class="section-sub">Track money you're setting aside for specific goals</div></div>
+        <button class="btn btn-primary" style="width:auto" onclick="openSavingsModal()">+ New Goal</button>
+      </div>
+      <div class="savings-grid" id="savingsGrid"><div class="empty-state" style="grid-column:1/-1"><div class="es-icon">🏦</div>Create your first savings goal</div></div>
+    </div>
+
+    <!-- TIPS -->
+    <div class="page" id="page-tips">
+      <div class="section-header"><div><div class="section-title">Smart Money Tips</div><div class="section-sub">Personalised guidance based on your spending</div></div></div>
+      <div id="tipsContainer"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- SAVINGS MODAL -->
+<div class="modal-overlay" id="savingsModal">
+  <div class="modal">
+    <h3>New Savings Goal</h3>
+    <div class="form-row"><label>Goal Name</label><input type="text" id="sgName" placeholder="e.g. Emergency Fund, Vacation…" /></div>
+    <div class="form-row"><label>Target Amount (₹)</label><input type="number" id="sgTarget" placeholder="e.g. 50000" /></div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeSavingsModal()">Cancel</button>
+      <button class="btn btn-save"   onclick="addSavingsGoal()">Create Goal</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD TO SAVINGS MODAL -->
+<div class="modal-overlay" id="addToSavingsModal">
+  <div class="modal">
+    <h3>Add to Savings Goal</h3>
+    <div class="form-row"><label>Amount (₹)</label><input type="number" id="addSgAmount" placeholder="0" /></div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeAddSavingsModal()">Cancel</button>
+      <button class="btn btn-save"   onclick="confirmAddToSavings()">Add Funds</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   CATEGORIES
+═══════════════════════════════════════════════════ */
+const SPEND_CATS = [
+  { key:'food',          label:'Food',          emoji:'🍔', color:'#c9a84c' },
+  { key:'transport',     label:'Transport',     emoji:'🚌', color:'#60a5fa' },
+  { key:'housing',       label:'Housing',       emoji:'🏠', color:'#d95f5f' },
+  { key:'health',        label:'Health',        emoji:'💊', color:'#3ecfaa' },
+  { key:'entertainment', label:'Entertainment', emoji:'🎮', color:'#f97316' },
+  { key:'shopping',      label:'Shopping',      emoji:'👗', color:'#ec4899' },
+  { key:'education',     label:'Education',     emoji:'📚', color:'#84cc16' },
+  { key:'utilities',     label:'Utilities',     emoji:'💡', color:'#06b6d4' },
+  { key:'travel',        label:'Travel',        emoji:'✈️', color:'#a78bfa' },
+  { key:'other',         label:'Other',         emoji:'📦', color:'#8b72d4' },
+];
+const SAVE_CATS = [
+  { key:'s_emergency',  label:'Emergency Fund', emoji:'🛡️', color:'#3ecfaa' },
+  { key:'s_investment', label:'Investment',     emoji:'📈', color:'#a78bfa' },
+  { key:'s_vacation',   label:'Vacation Fund',  emoji:'🏖️', color:'#f97316' },
+  { key:'s_gadgets',    label:'Gadgets / Tech', emoji:'💻', color:'#60a5fa' },
+  { key:'s_education',  label:'Education Fund', emoji:'🎓', color:'#84cc16' },
+  { key:'s_home',       label:'Home / Rent',    emoji:'🏡', color:'#ec4899' },
+];
+
+/* ═══════════════════════════════════════════════════
+   STATE  (per-user, keyed by uid)
+═══════════════════════════════════════════════════ */
+let currentUser = null;
+let state = {
+  budget:0, period:'monthly',
+  expenses:[], savingsGoals:[],
+  categoryLimits:{}, categorySaveTargets:{}
+};
+
+function stateKey() { return currentUser ? 'sw_' + currentUser.uid : 'sw_guest'; }
+function loadState() {
+  const raw = localStorage.getItem(stateKey());
+  if (raw) { try { state = { ...state, ...JSON.parse(raw) }; } catch(e){} }
+  const bi = document.getElementById('budgetInput');
+  const ps = document.getElementById('periodSelect');
+  if (bi) bi.value = state.budget || '';
+  if (ps) ps.value = state.period;
+  const ed = document.getElementById('expDate');
+  if (ed) ed.value = today();
+  populateCategorySelect();
+}
+function saveState() { localStorage.setItem(stateKey(), JSON.stringify(state)); }
+
+function today() { return new Date().toISOString().split('T')[0]; }
+function fmt(n) { return '₹' + (n||0).toLocaleString('en-IN',{maximumFractionDigits:0}); }
+
+/* ═══════════════════════════════════════════════════
+   AUTH UI
+═══════════════════════════════════════════════════ */
+function switchAuthTab(tab) {
+  const isSI = tab === 'signin';
+  document.getElementById('tabSignIn').classList.toggle('active', isSI);
+  document.getElementById('tabSignUp').classList.toggle('active', !isSI);
+  document.getElementById('formSignIn').style.display = isSI ? '' : 'none';
+  document.getElementById('formSignUp').style.display = isSI ? 'none' : '';
+}
+
+function showAuthError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 5000);
+}
+function clearAuthMsg(id) { document.getElementById(id).classList.remove('show'); }
+
+function doSignIn() {
+  if (!window._firebaseReady) { useDemo('Demo User', 'demo@spendwise.app'); return; }
+  const email = document.getElementById('siEmail').value.trim();
+  const pass  = document.getElementById('siPassword').value;
+  if (!email || !pass) { showAuthError('siError','Please fill in all fields.'); return; }
+  clearAuthMsg('siError');
+  document.getElementById('siBtn').disabled = true;
+  window._fbSignIn(window._fbAuth, email, pass)
+    .catch(err => {
+      showAuthError('siError', friendlyAuthError(err.code));
+      document.getElementById('siBtn').disabled = false;
+    });
+}
+
+function doSignUp() {
+  if (!window._firebaseReady) { useDemo('New User', document.getElementById('suEmail').value||'user@demo.app'); return; }
+  const name    = document.getElementById('suName').value.trim();
+  const email   = document.getElementById('suEmail').value.trim();
+  const pass    = document.getElementById('suPassword').value;
+  const confirm = document.getElementById('suConfirm').value;
+  if (!name||!email||!pass) { showAuthError('suError','Please fill in all fields.'); return; }
+  if (pass !== confirm)     { showAuthError('suError','Passwords do not match.'); return; }
+  if (pass.length < 6)      { showAuthError('suError','Password must be at least 6 characters.'); return; }
+  clearAuthMsg('suError');
+  document.getElementById('suBtn').disabled = true;
+  window._fbCreate(window._fbAuth, email, pass)
+    .then(cred => window._fbUpdate(cred.user, { displayName: name }))
+    .then(() => {
+      document.getElementById('suSuccess').textContent = 'Account created! Signing you in…';
+      document.getElementById('suSuccess').classList.add('show');
+    })
+    .catch(err => {
+      showAuthError('suError', friendlyAuthError(err.code));
+      document.getElementById('suBtn').disabled = false;
+    });
+}
+
+function doLogout() {
+  if (window._firebaseReady && window._fbAuth.currentUser) {
+    window._fbSignOut(window._fbAuth);
+  } else {
+    currentUser = null;
+    showAuth();
+  }
+}
+
+function friendlyAuthError(code) {
+  const map = {
+    'auth/user-not-found':      'No account found with this email.',
+    'auth/wrong-password':      'Incorrect password. Please try again.',
+    'auth/email-already-in-use':'An account with this email already exists.',
+    'auth/invalid-email':       'Please enter a valid email address.',
+    'auth/weak-password':       'Password must be at least 6 characters.',
+    'auth/too-many-requests':   'Too many attempts. Please wait a moment.',
+    'auth/network-request-failed': 'Network error. Check your connection.',
+    'auth/configuration-not-found': 'Firebase not configured yet. Using demo mode.',
+  };
+  return map[code] || 'Something went wrong. Please try again.';
+}
+
+/* Demo mode (Firebase not yet configured) */
+function useDemo(name, email) {
+  currentUser = { uid:'demo', displayName: name, email };
+  showApp();
+}
+
+/* Guest mode */
+function continueAsGuest() {
+  currentUser = { uid:'guest', displayName:'Guest', email:'', isGuest: true };
+  showApp();
+}
+
+function showAuth() {
+  document.getElementById('authScreen').style.display = 'flex';
+  document.getElementById('appScreen').classList.remove('visible');
+}
+function showApp() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('appScreen').classList.add('visible');
+  // Update header user chip
+  const name = currentUser?.displayName || currentUser?.email || '?';
+  const initials = name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+  document.getElementById('userAvatar').textContent = initials;
+  document.getElementById('userEmailDisplay').textContent = (currentUser?.email||'').split('@')[0];
+  // Load this user's data
+  state = { budget:0, period:'monthly', expenses:[], savingsGoals:[], categoryLimits:{}, categorySaveTargets:{} };
+  loadState();
+  renderAll();
+}
+
+/* Firebase auth state listener — fires when Firebase is ready */
+document.addEventListener('firebase-ready', () => {
+  window._fbOnAuth(window._fbAuth, user => {
+    if (user) { currentUser = user; showApp(); }
+    else      { currentUser = null; showAuth(); }
+  });
+});
+
+/* If Firebase module fails to load (wrong config, offline) — show auth screen anyway */
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    if (!window._firebaseReady) {
+      // Firebase config not set — show auth with demo notice already visible
+      document.getElementById('authScreen').style.display = 'flex';
+    }
+  }, 800);
+});
+
+/* ═══════════════════════════════════════════════════
+   NAV
+═══════════════════════════════════════════════════ */
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'tips')    renderTips();
+  if (name === 'planner') renderPlanner();
+}
+
+/* ═══════════════════════════════════════════════════
+   PERIOD / BUDGET
+═══════════════════════════════════════════════════ */
+function updatePeriod() {
+  state.period = document.getElementById('periodSelect').value;
+  document.getElementById('periodLabel').textContent = state.period === 'monthly' ? 'Monthly' : 'Weekly';
+  saveState(); renderAll();
+}
+function updateBudget() {
+  state.budget = parseFloat(document.getElementById('budgetInput').value)||0;
+  saveState(); renderAll();
+}
+
+function populateCategorySelect() {
+  const el = document.getElementById('expCategory');
+  if (el) el.innerHTML = SPEND_CATS.map(c=>`<option value="${c.key}">${c.emoji} ${c.label}</option>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════
+   EXPENSES
+═══════════════════════════════════════════════════ */
+function addExpense() {
+  const name   = document.getElementById('expName').value.trim();
+  const amount = parseFloat(document.getElementById('expAmount').value);
+  const catKey = document.getElementById('expCategory').value;
+  const date   = document.getElementById('expDate').value;
+  if (!name||!amount||amount<=0) { alert('Please enter a name and valid amount.'); return; }
+  state.expenses.unshift({ id:Date.now(), name, amount, catKey, date:date||today() });
+  document.getElementById('expName').value='';
+  document.getElementById('expAmount').value='';
+  saveState(); renderAll();
+}
+function deleteExpense(id) { state.expenses=state.expenses.filter(e=>e.id!==id); saveState(); renderAll(); }
+
+function getCatSpend() {
+  const m={};
+  state.expenses.forEach(e=>{ m[e.catKey]=(m[e.catKey]||0)+e.amount; });
+  return m;
+}
+
+/* ═══════════════════════════════════════════════════
+   RENDER ALL
+═══════════════════════════════════════════════════ */
+function renderAll() {
+  const total     = state.expenses.reduce((s,e)=>s+e.amount,0);
+  const budget    = state.budget;
+  const pct       = budget>0 ? Math.min(total/budget*100,100) : 0;
+  const totalSaved= state.savingsGoals.reduce((s,g)=>s+g.saved,0);
+
+  document.getElementById('statBudget').textContent    = fmt(budget);
+  document.getElementById('statPeriodSub').textContent = state.period==='monthly' ? 'This Month' : 'This Week';
+  document.getElementById('statSpent').textContent     = fmt(total);
+  document.getElementById('statTxCount').textContent   = state.expenses.length+' transaction'+(state.expenses.length!==1?'s':'');
+  document.getElementById('statRemaining').textContent = fmt(Math.max(budget-total,0));
+  document.getElementById('statSaved').textContent     = fmt(totalSaved);
+
+  const st = document.getElementById('statStatus');
+  if (!budget)       st.textContent='Set a budget above';
+  else if (pct<70)   st.textContent='✓ Looking great';
+  else if (pct<90)   st.textContent='⚠ Getting close';
+  else if (pct<100)  st.textContent='⚠ Almost at limit!';
+  else               st.textContent='✗ Limit exceeded';
+
+  const fill = document.getElementById('progressFill');
+  fill.style.width = pct+'%';
+  fill.className='progress-fill '+(pct<70?'safe':pct<90?'warn':'danger');
+  document.getElementById('progressPct').textContent = Math.round(pct)+'%';
+  document.getElementById('progressMax').textContent = fmt(budget)+' limit';
+  const badge = document.getElementById('progressBadge');
+  if (pct<70)       { badge.className='badge badge-safe';   badge.textContent='On Track'; }
+  else if (pct<90)  { badge.className='badge badge-warn';   badge.textContent='Watch Out'; }
+  else              { badge.className='badge badge-danger';  badge.textContent='Over Limit'; }
+
+  renderCatBreakdown(total);
+  renderTransactions();
+  renderSavings();
+}
+
+function renderCatBreakdown(total) {
+  const catSpend = getCatSpend();
+  const el = document.getElementById('catBreakdown');
+  const active = SPEND_CATS.filter(c=>catSpend[c.key]);
+  if (!active.length) { el.innerHTML='<div class="empty-state"><div class="es-icon">📊</div>Add expenses to see breakdown</div>'; return; }
+  el.innerHTML = [...active].sort((a,b)=>(catSpend[b.key]||0)-(catSpend[a.key]||0)).map(cat=>{
+    const spent  = catSpend[cat.key]||0;
+    const limit  = state.categoryLimits[cat.key]||0;
+    const barPct = total>0?(spent/total*100):0;
+    const isOver = limit>0&&spent>limit;
+    const lmPct  = limit>0&&total>0?Math.min(limit/total*100,100):0;
+    const marker = limit>0?`<div class="cat-bar-limit" style="left:${lmPct}%"></div>`:'';
+    const limTxt = limit>0
+      ?`<div class="cat-limit-label ${isOver?'over':''}">/ ${fmt(limit)}</div>`
+      :`<div class="cat-limit-label" style="opacity:0.25">—</div>`;
+    return `<div class="cat-row">
+      <div class="cat-icon">${cat.emoji}</div>
+      <div class="cat-name">${cat.label}</div>
+      <div class="cat-bar-wrap">
+        <div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${barPct}%;background:${isOver?'var(--danger)':cat.color}"></div></div>
+        ${marker}
+      </div>
+      <div class="cat-amount ${isOver?'over':''}">${fmt(spent)}</div>${limTxt}
+    </div>`;
+  }).join('');
+}
+
+function renderTransactions() {
+  const el = document.getElementById('txList');
+  if (!state.expenses.length) { el.innerHTML='<div class="empty-state"><div class="es-icon">💸</div>No expenses yet</div>'; return; }
+  el.innerHTML = state.expenses.slice(0,60).map(e=>{
+    const cat = SPEND_CATS.find(c=>c.key===e.catKey)||{emoji:'📦',label:e.catKey};
+    return `<div class="tx-item">
+      <div class="tx-emoji">${cat.emoji}</div>
+      <div class="tx-info"><div class="tx-name">${e.name}</div><div class="tx-meta">${cat.label} · ${e.date}</div></div>
+      <div class="tx-amount">${fmt(e.amount)}</div>
+      <button class="btn btn-danger" onclick="deleteExpense(${e.id})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════
+   BUDGET PLANNER
+═══════════════════════════════════════════════════ */
+function renderPlanner() {
+  const catSpend = getCatSpend();
+  document.getElementById('plannerSpendGrid').innerHTML = SPEND_CATS.map(cat=>{
+    const spent  = catSpend[cat.key]||0;
+    const limit  = state.categoryLimits[cat.key]||0;
+    const isOver = limit>0&&spent>limit;
+    const pct    = limit>0?Math.min(spent/limit*100,100):0;
+    const cls    = isOver?'over-limit':limit>0?'has-limit':'';
+    const bar    = limit>0?`<div class="pc-progress">
+      <div class="pc-progress-bar"><div class="pc-progress-fill" style="width:${pct}%;background:${isOver?'var(--danger)':pct>75?'var(--warning)':cat.color}"></div></div>
+      <div class="pc-progress-label ${isOver?'over':''}">${fmt(spent)} spent · ${fmt(limit)} limit · ${Math.round(pct)}%</div>
+    </div>`:`<div style="font-size:0.63rem;color:var(--muted);margin-top:9px;padding-top:9px;border-top:1px solid var(--border)">Spent so far: <span style="color:var(--text2)">${fmt(spent)}</span></div>`;
+    return `<div class="planner-card ${cls}">
+      <div class="pc-header"><div class="pc-emoji">${cat.emoji}</div><div class="pc-name">${cat.label}</div><span class="pc-badge spend">Spend</span></div>
+      <div class="pc-input-row"><label>Limit / period</label><input type="number" placeholder="no limit" value="${limit||''}" oninput="setCatLimit('${cat.key}',this.value)" /></div>
+      ${bar}</div>`;
+  }).join('');
+
+  document.getElementById('plannerSaveGrid').innerHTML = SAVE_CATS.map(cat=>{
+    const target = state.categorySaveTargets[cat.key]||0;
+    const goal   = state.savingsGoals.find(g=>g.catKey===cat.key);
+    const saved  = goal?goal.saved:0;
+    const pct    = target>0?Math.min(saved/target*100,100):0;
+    const cls    = target>0?'has-save':'';
+    const bar    = target>0?`<div class="pc-progress">
+      <div class="pc-progress-bar"><div class="pc-progress-fill" style="width:${pct}%;background:linear-gradient(90deg,var(--purple),#b09af0)"></div></div>
+      <div class="pc-progress-label">${fmt(saved)} saved · ${fmt(target)} target · ${Math.round(pct)}%</div>
+    </div>`:`<div style="font-size:0.63rem;color:var(--muted);margin-top:9px;padding-top:9px;border-top:1px solid var(--border)">No target set yet</div>`;
+    return `<div class="planner-card ${cls}">
+      <div class="pc-header"><div class="pc-emoji">${cat.emoji}</div><div class="pc-name">${cat.label}</div><span class="pc-badge save">Save</span></div>
+      <div class="pc-input-row"><label>Target / period</label><input type="number" placeholder="no target" value="${target||''}" oninput="setCatSaveTarget('${cat.key}',this.value,'${cat.label}')" /></div>
+      ${bar}</div>`;
+  }).join('');
+}
+
+function setCatLimit(key, val) { state.categoryLimits[key]=parseFloat(val)||0; saveState(); renderAll(); renderPlanner(); }
+function setCatSaveTarget(key, val, label) {
+  const target = parseFloat(val)||0;
+  state.categorySaveTargets[key] = target;
+  let goal = state.savingsGoals.find(g=>g.catKey===key);
+  if (target>0) {
+    if (!goal) state.savingsGoals.push({ id:Date.now(), name:label, target, saved:0, catKey:key });
+    else goal.target = target;
+  } else if (goal&&goal.saved===0) {
+    state.savingsGoals = state.savingsGoals.filter(g=>g.catKey!==key);
+  }
+  saveState(); renderAll(); renderPlanner();
+}
+
+/* ═══════════════════════════════════════════════════
+   SAVINGS
+═══════════════════════════════════════════════════ */
+let activeSgId = null;
+function openSavingsModal()  { document.getElementById('sgName').value=''; document.getElementById('sgTarget').value=''; document.getElementById('savingsModal').classList.add('open'); }
+function closeSavingsModal() { document.getElementById('savingsModal').classList.remove('open'); }
+function addSavingsGoal() {
+  const name=document.getElementById('sgName').value.trim();
+  const target=parseFloat(document.getElementById('sgTarget').value);
+  if(!name||!target||target<=0){alert('Enter goal name and target.');return;}
+  state.savingsGoals.push({id:Date.now(),name,target,saved:0});
+  closeSavingsModal(); saveState(); renderAll();
+}
+function openAddSavings(id)      { activeSgId=id; document.getElementById('addSgAmount').value=''; document.getElementById('addToSavingsModal').classList.add('open'); }
+function closeAddSavingsModal()  { document.getElementById('addToSavingsModal').classList.remove('open'); activeSgId=null; }
+function confirmAddToSavings() {
+  const amount=parseFloat(document.getElementById('addSgAmount').value);
+  if(!amount||amount<=0){alert('Enter a valid amount.');return;}
+  const goal=state.savingsGoals.find(g=>g.id===activeSgId);
+  if(goal) goal.saved=Math.min(goal.saved+amount,goal.target);
+  closeAddSavingsModal(); saveState(); renderAll();
+}
+function deleteSavingsGoal(id) { state.savingsGoals=state.savingsGoals.filter(g=>g.id!==id); saveState(); renderAll(); }
+
+function renderSavings() {
+  const el = document.getElementById('savingsGrid');
+  const total = state.savingsGoals.reduce((s,g)=>s+g.saved,0);
+  document.getElementById('statSaved').textContent = fmt(total);
+  if(!state.savingsGoals.length){el.innerHTML='<div class="empty-state" style="grid-column:1/-1"><div class="es-icon">🏦</div>Create your first savings goal</div>';return;}
+  el.innerHTML = state.savingsGoals.map(g=>{
+    const pct=g.target>0?Math.min(g.saved/g.target*100,100):0;
+    return `<div class="savings-goal-card">
+      <div class="sg-name">${g.name}</div>
+      <div class="sg-target">Target: ${fmt(g.target)}</div>
+      <div class="progress-track" style="margin-bottom:9px">
+        <div class="progress-fill safe" style="width:${pct}%;background:linear-gradient(90deg,var(--purple),#b09af0)"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><div class="sg-saved">${fmt(g.saved)}</div><div style="font-size:0.64rem;color:var(--muted)">${Math.round(pct)}% reached</div></div>
+        <div style="display:flex;gap:7px">
+          <button class="btn btn-add" onclick="openAddSavings(${g.id})">+ Add</button>
+          <button class="btn btn-danger" onclick="deleteSavingsGoal(${g.id})">✕</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════
+   TIPS
+═══════════════════════════════════════════════════ */
+function renderTips() {
+  const total    = state.expenses.reduce((s,e)=>s+e.amount,0);
+  const budget   = state.budget;
+  const pct      = budget>0?(total/budget*100):0;
+  const catSpend = getCatSpend();
+  const topEntry = Object.entries(catSpend).sort((a,b)=>b[1]-a[1])[0];
+  const topCat   = topEntry?SPEND_CATS.find(c=>c.key===topEntry[0]):null;
+  const tips = [];
+
+  SPEND_CATS.forEach(cat=>{
+    const limit=state.categoryLimits[cat.key]||0;
+    const spent=catSpend[cat.key]||0;
+    if(limit>0&&spent>limit)
+      tips.push({label:`🚨 ${cat.emoji} ${cat.label} Over Limit`,text:`You've spent ${fmt(spent)} on ${cat.label} but your limit is ${fmt(limit)}. Pause spending here for the rest of the period.`});
+  });
+  if(!budget) tips.push({label:'🎯 Set an Overall Budget',text:'Go to the Dashboard and set your monthly or weekly budget. It\'s the single most impactful first step.'});
+  const hasLimit = Object.values(state.categoryLimits).some(v=>v>0);
+  const hasSave  = Object.values(state.categorySaveTargets).some(v=>v>0);
+  if(!hasLimit||!hasSave)
+    tips.push({label:'✦ Use the Budget Planner',text:`Head to Budget Planner to set per-category spending limits${!hasSave?' and savings targets':''}. Granular limits are far more effective than a single total.`});
+  if(pct>90&&budget>0) tips.push({label:'⚠️ Near Overall Limit',text:`You've used ${Math.round(pct)}% of your total budget. Pause non-essential spending until the period resets.`});
+  if(topCat) tips.push({label:`📌 Top Spend: ${topCat.emoji} ${topCat.label}`,text:`Your biggest category is ${topCat.label} at ${fmt(topEntry[1])}. Even trimming 15% here each month adds up significantly over a year.`});
+  if(!state.savingsGoals.length) tips.push({label:'💰 Start a Savings Goal',text:'Create a savings goal in the Savings tab — emergency fund, vacation, or a big purchase. Set a target and watch the progress bar fill up.'});
+  if(state.expenses.length>5&&pct<60) tips.push({label:'🏆 Great Discipline!',text:`You're only at ${Math.round(pct)}% of your budget. Move surplus into savings before the period ends — don't let unspent money dissolve into impulse buys.`});
+  tips.push({label:'💡 The 50/30/20 Rule',text:'50% on needs (rent, food, utilities), 30% on wants (dining, entertainment), 20% on savings and debt. Use Budget Planner to align with this ratio.'});
+  tips.push({label:'📅 The Weekly Review Habit',text:'Even on a monthly budget, a 5-minute weekly check prevents small overruns from becoming month-end surprises.'});
+  tips.push({label:'🛒 The 24-Hour Rule',text:'For any non-essential purchase over ₹500, wait 24 hours before buying. This single habit cuts impulse spending dramatically.'});
+
+  document.getElementById('tipsContainer').innerHTML = tips.map(t=>
+    `<div class="tip-card"><div class="tip-label">${t.label}</div><div class="tip-text">${t.text}</div></div>`
+  ).join('');
+}
+</script>
+</body>
+</html>
